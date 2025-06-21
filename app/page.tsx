@@ -674,7 +674,7 @@ export default function IPLookupPage() {
 
         {/* Footer */}
         <div className="text-center mt-12 sm:mt-16 text-white/60">
-          <p className="text-base sm:text-lg font-semibold">© 2024 IP Intelligence Platform</p>
+          <p className="text-base sm:text-lg font-semibold">© 2025 Xreat IP Lookup</p>
           <p className="text-sm mt-2">
             Enhanced with iplocation.io • {lookupData?.total_apis || 7} API sources • Real-time geolocation analysis
           </p>
