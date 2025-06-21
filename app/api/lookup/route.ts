@@ -61,7 +61,7 @@ const IP_SERVICES = [
   {
     name: "ip-api.com",
     url: (ip: string) =>
-      `https://ip-api.com/json/${ip}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,offset,isp,org,as,asname,mobile,proxy,hosting,query`,
+      `http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,offset,isp,org,as,asname,mobile,proxy,hosting,query`,
     transform: (data: any): ProcessedIPInfo => {
       if (data.status === "fail") {
         throw new Error(data.message || "IP lookup failed")
