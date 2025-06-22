@@ -59,7 +59,7 @@ You can now deploy the generated files to any static hosting service.
 
 ## 📸 Preview
 
-![Preview Screenshot](https://ibb.co/3Yss0MRm)
+![Preview Screenshot](https://i.ibb.co/fGSSCnDd/xreat-iplookup-vercel-app-1024x-FULLdesktop-dca7ed.png)
 
 ---
 
