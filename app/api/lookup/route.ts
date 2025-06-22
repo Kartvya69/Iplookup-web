@@ -117,7 +117,7 @@ const IP_SERVICES = [
   },
   {
     name: "ipgeolocation.io",
-    url: (ip: string) => `https://api.ipgeolocation.io/ipgeo?apiKey=free&ip=${ip}`,
+    url: (ip: string) => `https://api.ipgeolocation.io/v2/ipgeo?apiKey=392a1cee5b974d219321c17b79f44596&ip=${ip}&output=json`,
     transform: (data: any): ProcessedIPInfo => ({
       ip: data.ip,
       city: data.city || "Unknown",
