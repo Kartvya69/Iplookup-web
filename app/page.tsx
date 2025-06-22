@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,6 +30,7 @@ import {
   CheckCircle,
   Info,
   Lightbulb,
+  Github,
 } from "lucide-react"
 
 interface IPInfo {
@@ -84,10 +85,22 @@ export default function IPLookupPage() {
   const [errorSuggestion, setErrorSuggestion] = useState("")
   const [isMyIP, setIsMyIP] = useState(false)
 
+  const resultsRef = useRef<HTMLDivElement>(null)
+
   const validateIP = (ip: string): boolean => {
     const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
     const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$|^::$/
     return ipv4Regex.test(ip) || ipv6Regex.test(ip)
+  }
+
+  const scrollToResults = () => {
+    if (resultsRef.current) {
+      resultsRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+        inline: "nearest",
+      })
+    }
   }
 
   const handleManualLookup = async () => {
@@ -126,6 +139,8 @@ export default function IPLookupPage() {
 
       const data: LookupResponse = await response.json()
       setLookupData(data)
+      // Scroll to results after a short delay to ensure rendering is complete
+      setTimeout(() => scrollToResults(), 100)
     } catch (err) {
       console.error("Lookup error:", err)
       setError(err instanceof Error ? err.message : "An unexpected error occurred")
@@ -174,6 +189,8 @@ export default function IPLookupPage() {
       const data: LookupResponse = await response.json()
       setIpAddress(data.consolidated.ip)
       setLookupData(data)
+      // Scroll to results after a short delay to ensure rendering is complete
+      setTimeout(() => scrollToResults(), 100)
     } catch (err) {
       console.error("Detect my IP error:", err)
       setError(err instanceof Error ? err.message : "Unable to detect your IP address")
@@ -217,6 +234,8 @@ export default function IPLookupPage() {
 
       const data: LookupResponse = await response.json()
       setLookupData(data)
+      // Scroll to results after a short delay to ensure rendering is complete
+      setTimeout(() => scrollToResults(), 100)
     } catch (err) {
       console.error("Demo lookup error:", err)
       setError(err instanceof Error ? err.message : "An unexpected error occurred")
@@ -243,6 +262,21 @@ export default function IPLookupPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              asChild
+              className="text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <a
+                href="https://github.com/Kartvya69/iplookup-web"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="View source code on GitHub"
+              >
+                <Github className="w-5 h-5" />
+              </a>
+            </Button>
             <ThemeToggle />
           </div>
         </div>
@@ -422,7 +456,7 @@ export default function IPLookupPage() {
 
         {/* Results Section */}
         {lookupData && ipInfo && (
-          <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
+          <div ref={resultsRef} className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
             {/* Success Indicator for My IP */}
             {isMyIP && (
               <Card className="border-green-500/50 bg-green-900/20 shadow-2xl">
