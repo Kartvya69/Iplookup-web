@@ -19,22 +19,22 @@ A modern and sleek IP Lookup web tool that lets you find your own IP address or 
 
 ### 🧱 Clone the Repository
 
-\`\`\`bash
+```bash
 git clone https://github.com/Kartvya69/iplookup-web.git
 cd xreat-iplookup
-\`\`\`
+```
 
 ### 🛠 Install Dependencies (Development)
 
-\`\`\`bash
+```bash
 npm install
-\`\`\`
+```
 
 ### 💻 Run the App (Development)
 
-\`\`\`bash
+```bash
 npm run dev
-\`\`\`
+```
 
 ---
 
@@ -42,16 +42,16 @@ npm run dev
 
 Make sure [Bun](https://bun.sh) is installed:
 
-\`\`\`bash
+```bash
 npm install -g bun
-\`\`\`
+```
 
 Then run:
 
-\`\`\`bash
+```bash
 bun install
 bun run build
-\`\`\`
+```
 
 You can now deploy the generated files to any static hosting service.
 
