@@ -142,7 +142,7 @@ const IP_SERVICES = [
   },
   {
     name: "iplocation.io",
-    url: (ip: string) => `https://api.iplocation.io/?ip=${ip}`,
+    url: (ip: string) => `https://api.iplocation.net/?ip=${ip}`,
     transform: (data: any): ProcessedIPInfo => ({
       ip: data.ip,
       city: data.city || "Unknown",
