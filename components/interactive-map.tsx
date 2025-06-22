@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CountryFlag } from "@/components/country-flag"
-import { MapPin, AlertCircle, Loader2, Maximize2, Minimize2, ExternalLink, Settings } from "lucide-react"
+import { MapPin, AlertCircle, Loader2, Maximize2, Minimize2, ExternalLink, Layers, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface IPInfo {
@@ -25,8 +25,7 @@ interface InteractiveMapProps {
 
 declare global {
   interface Window {
-    google: any
-    initMap: () => void
+    L: any
   }
 }
 
@@ -38,126 +37,43 @@ export function InteractiveMap({ ipInfo }: InteractiveMapProps) {
   const [error, setError] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMapLoaded, setIsMapLoaded] = useState(false)
-  const [apiKeyMissing, setApiKeyMissing] = useState(false)
+  const [currentLayer, setCurrentLayer] = useState<"street" | "satellite" | "terrain">("street")
 
-  // Check if API key is available
-  const hasApiKey =
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY &&
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY !== "YOUR_API_KEY" &&
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.length > 10
+  // Map layer configurations
+  const mapLayers = {
+    street: {
+      name: "Street Map",
+      url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    },
+    satellite: {
+      name: "Satellite",
+      url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      attribution:
+        '© <a href="https://www.esri.com/">Esri</a>, © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    },
+    terrain: {
+      name: "Terrain",
+      url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+      attribution:
+        '© <a href="https://opentopomap.org/">OpenTopoMap</a>, © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    },
+  }
 
-  // Custom dark theme map styles to match the application
-  const darkMapStyles = [
-    {
-      elementType: "geometry",
-      stylers: [{ color: "#1a1a1a" }],
-    },
-    {
-      elementType: "labels.text.stroke",
-      stylers: [{ color: "#1a1a1a" }],
-    },
-    {
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#8ec3b9" }],
-    },
-    {
-      featureType: "administrative.locality",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#60a5fa" }],
-    },
-    {
-      featureType: "poi",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#60a5fa" }],
-    },
-    {
-      featureType: "poi.park",
-      elementType: "geometry",
-      stylers: [{ color: "#263c3f" }],
-    },
-    {
-      featureType: "poi.park",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#6b9a76" }],
-    },
-    {
-      featureType: "road",
-      elementType: "geometry",
-      stylers: [{ color: "#38414e" }],
-    },
-    {
-      featureType: "road",
-      elementType: "geometry.stroke",
-      stylers: [{ color: "#212a37" }],
-    },
-    {
-      featureType: "road",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#9ca5b3" }],
-    },
-    {
-      featureType: "road.highway",
-      elementType: "geometry",
-      stylers: [{ color: "#746855" }],
-    },
-    {
-      featureType: "road.highway",
-      elementType: "geometry.stroke",
-      stylers: [{ color: "#1f2835" }],
-    },
-    {
-      featureType: "road.highway",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#f3d19c" }],
-    },
-    {
-      featureType: "transit",
-      elementType: "geometry",
-      stylers: [{ color: "#2f3948" }],
-    },
-    {
-      featureType: "transit.station",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#60a5fa" }],
-    },
-    {
-      featureType: "water",
-      elementType: "geometry",
-      stylers: [{ color: "#17263c" }],
-    },
-    {
-      featureType: "water",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#515c6d" }],
-    },
-    {
-      featureType: "water",
-      elementType: "labels.text.stroke",
-      stylers: [{ color: "#17263c" }],
-    },
-  ]
-
-  const loadGoogleMaps = () => {
+  const loadLeaflet = () => {
     return new Promise<void>((resolve, reject) => {
-      // Check if API key is missing
-      if (!hasApiKey) {
-        setApiKeyMissing(true)
-        reject(new Error("Google Maps API key is missing or invalid"))
-        return
-      }
-
-      // Check if Google Maps is already loaded
-      if (window.google && window.google.maps) {
+      // Check if Leaflet is already loaded
+      if (window.L) {
         resolve()
         return
       }
 
-      // Check if script is already being loaded
-      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
+      // Check if scripts are already being loaded
+      const existingScript = document.querySelector('script[src*="leaflet"]')
       if (existingScript) {
         // Wait for it to load
         const checkLoaded = setInterval(() => {
-          if (window.google && window.google.maps) {
+          if (window.L) {
             clearInterval(checkLoaded)
             resolve()
           }
@@ -166,38 +82,75 @@ export function InteractiveMap({ ipInfo }: InteractiveMapProps) {
         // Timeout after 10 seconds
         setTimeout(() => {
           clearInterval(checkLoaded)
-          reject(new Error("Google Maps API failed to load within timeout"))
+          reject(new Error("Leaflet failed to load within timeout"))
         }, 10000)
         return
       }
 
-      // Create and load the script
+      // Load CSS first
+      const cssLink = document.createElement("link")
+      cssLink.rel = "stylesheet"
+      cssLink.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      cssLink.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      cssLink.crossOrigin = ""
+      document.head.appendChild(cssLink)
+
+      // Load JavaScript
       const script = document.createElement("script")
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=geometry`
+      script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      script.crossOrigin = ""
       script.async = true
       script.defer = true
 
       script.onload = () => {
-        // Double check that Google Maps loaded properly
-        if (window.google && window.google.maps) {
+        // Double check that Leaflet loaded properly
+        if (window.L) {
           resolve()
         } else {
-          reject(new Error("Google Maps API loaded but objects are not available"))
+          reject(new Error("Leaflet loaded but objects are not available"))
         }
       }
 
       script.onerror = (e) => {
-        console.error("Google Maps script failed to load:", e)
-        reject(new Error("Failed to load Google Maps API script"))
-      }
-
-      // Handle specific Google Maps API errors
-      window.gm_authFailure = () => {
-        setApiKeyMissing(true)
-        reject(new Error("Google Maps API authentication failed - please check your API key"))
+        console.error("Leaflet script failed to load:", e)
+        reject(new Error("Failed to load Leaflet library"))
       }
 
       document.head.appendChild(script)
+    })
+  }
+
+  const createCustomIcon = () => {
+    if (!window.L) return null
+
+    return window.L.divIcon({
+      className: "custom-marker",
+      html: `
+        <div style="
+          background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+          width: 32px;
+          height: 32px;
+          border-radius: 50% 50% 50% 0;
+          border: 3px solid white;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transform: rotate(-45deg);
+          position: relative;
+        ">
+          <div style="
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            transform: rotate(45deg);
+          ">📍</div>
+        </div>
+      `,
+      iconSize: [32, 32],
+      iconAnchor: [16, 32],
+      popupAnchor: [0, -32],
     })
   }
 
@@ -209,67 +162,72 @@ export function InteractiveMap({ ipInfo }: InteractiveMapProps) {
     }
 
     try {
-      await loadGoogleMaps()
+      await loadLeaflet()
 
       const { latitude, longitude } = ipInfo
-      const position = { lat: latitude, lng: longitude }
 
       // Initialize map
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: position,
+      const map = window.L.map(mapRef.current, {
+        center: [latitude, longitude],
         zoom: 10,
-        styles: darkMapStyles,
-        mapTypeControl: true,
-        streetViewControl: true,
-        fullscreenControl: false, // We'll handle fullscreen ourselves
         zoomControl: true,
-        mapTypeControlOptions: {
-          style: window.google.maps.MapTypeControlStyle.DROPDOWN_MENU,
-          position: window.google.maps.ControlPosition.TOP_RIGHT,
-        },
-        zoomControlOptions: {
-          position: window.google.maps.ControlPosition.RIGHT_CENTER,
-        },
+        attributionControl: true,
+        scrollWheelZoom: true,
+        doubleClickZoom: true,
+        dragging: true,
       })
 
-      // Create custom marker with IP info
-      const marker = new window.google.maps.Marker({
-        position: position,
-        map: map,
+      // Add initial tile layer
+      const currentLayerConfig = mapLayers[currentLayer]
+      const tileLayer = window.L.tileLayer(currentLayerConfig.url, {
+        attribution: currentLayerConfig.attribution,
+        maxZoom: 18,
+        tileSize: 256,
+        zoomOffset: 0,
+      })
+      tileLayer.addTo(map)
+
+      // Create custom marker
+      const customIcon = createCustomIcon()
+      const marker = window.L.marker([latitude, longitude], {
+        icon: customIcon,
         title: `${ipInfo.ip} - ${ipInfo.city}, ${ipInfo.country}`,
-        animation: window.google.maps.Animation.DROP,
-      })
+      }).addTo(map)
 
-      // Create info window
-      const infoWindow = new window.google.maps.InfoWindow({
-        content: `
-          <div style="color: #1a1a1a; font-family: system-ui, -apple-system, sans-serif; min-width: 200px;">
-            <div style="font-weight: bold; font-size: 16px; margin-bottom: 8px; color: #1e40af;">
-              ${ipInfo.ip}
-            </div>
-            <div style="margin-bottom: 4px;">
-              <strong>Location:</strong> ${ipInfo.city}, ${ipInfo.region}
-            </div>
-            <div style="margin-bottom: 4px;">
-              <strong>Country:</strong> ${ipInfo.country} (${ipInfo.country_code})
-            </div>
-            <div style="margin-bottom: 4px;">
-              <strong>Coordinates:</strong> ${latitude.toFixed(4)}, ${longitude.toFixed(4)}
-            </div>
-            ${ipInfo.postal_code ? `<div><strong>Postal Code:</strong> ${ipInfo.postal_code}</div>` : ""}
+      // Create popup content
+      const popupContent = `
+        <div style="font-family: system-ui, -apple-system, sans-serif; min-width: 200px; color: #1a1a1a;">
+          <div style="font-weight: bold; font-size: 16px; margin-bottom: 8px; color: #1e40af;">
+            ${ipInfo.ip}
           </div>
-        `,
-      })
+          <div style="margin-bottom: 4px;">
+            <strong>Location:</strong> ${ipInfo.city}, ${ipInfo.region}
+          </div>
+          <div style="margin-bottom: 4px;">
+            <strong>Country:</strong> ${ipInfo.country} (${ipInfo.country_code})
+          </div>
+          <div style="margin-bottom: 4px;">
+            <strong>Coordinates:</strong> ${latitude.toFixed(4)}, ${longitude.toFixed(4)}
+          </div>
+          ${ipInfo.postal_code ? `<div><strong>Postal Code:</strong> ${ipInfo.postal_code}</div>` : ""}
+        </div>
+      `
 
-      // Show info window on marker click
-      marker.addListener("click", () => {
-        infoWindow.open(map, marker)
-      })
+      marker.bindPopup(popupContent)
 
-      // Auto-open info window initially
+      // Auto-open popup initially
       setTimeout(() => {
-        infoWindow.open(map, marker)
+        marker.openPopup()
       }, 1000)
+
+      // Add a circle to show approximate area
+      const circle = window.L.circle([latitude, longitude], {
+        color: "#3b82f6",
+        fillColor: "#3b82f6",
+        fillOpacity: 0.1,
+        radius: 5000, // 5km radius
+        weight: 2,
+      }).addTo(map)
 
       mapInstanceRef.current = map
       markerRef.current = marker
@@ -277,13 +235,32 @@ export function InteractiveMap({ ipInfo }: InteractiveMapProps) {
       setIsLoading(false)
     } catch (err) {
       console.error("Error initializing map:", err)
-      if (apiKeyMissing) {
-        setError("Google Maps API key is missing or invalid")
-      } else {
-        setError("Failed to load interactive map. Please check your internet connection.")
-      }
+      setError("Failed to load interactive map. Please check your internet connection.")
       setIsLoading(false)
     }
+  }
+
+  const changeMapLayer = (layerType: "street" | "satellite" | "terrain") => {
+    if (!mapInstanceRef.current) return
+
+    // Remove all existing tile layers
+    mapInstanceRef.current.eachLayer((layer: any) => {
+      if (layer instanceof window.L.TileLayer) {
+        mapInstanceRef.current.removeLayer(layer)
+      }
+    })
+
+    // Add new tile layer
+    const layerConfig = mapLayers[layerType]
+    const tileLayer = window.L.tileLayer(layerConfig.url, {
+      attribution: layerConfig.attribution,
+      maxZoom: 18,
+      tileSize: 256,
+      zoomOffset: 0,
+    })
+    tileLayer.addTo(mapInstanceRef.current)
+
+    setCurrentLayer(layerType)
   }
 
   const toggleFullscreen = () => {
@@ -291,20 +268,29 @@ export function InteractiveMap({ ipInfo }: InteractiveMapProps) {
     // Trigger map resize after fullscreen toggle
     setTimeout(() => {
       if (mapInstanceRef.current) {
-        window.google.maps.event.trigger(mapInstanceRef.current, "resize")
+        mapInstanceRef.current.invalidateSize()
       }
     }, 100)
   }
 
   const centerMap = () => {
     if (mapInstanceRef.current && markerRef.current) {
-      mapInstanceRef.current.setCenter(markerRef.current.getPosition())
-      mapInstanceRef.current.setZoom(12)
+      mapInstanceRef.current.setView([ipInfo.latitude, ipInfo.longitude], 12)
+      markerRef.current.openPopup()
     }
   }
 
-  const openGoogleMapsExternal = () => {
-    const url = `https://www.google.com/maps?q=${ipInfo.latitude},${ipInfo.longitude}&z=12`
+  const resetView = () => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setView([ipInfo.latitude, ipInfo.longitude], 10)
+      if (markerRef.current) {
+        markerRef.current.openPopup()
+      }
+    }
+  }
+
+  const openExternalMap = () => {
+    const url = `https://www.openstreetmap.org/?mlat=${ipInfo.latitude}&mlon=${ipInfo.longitude}&zoom=12`
     window.open(url, "_blank")
   }
 
@@ -315,6 +301,14 @@ export function InteractiveMap({ ipInfo }: InteractiveMapProps) {
       initializeMap()
     } else {
       setIsLoading(false)
+    }
+
+    // Cleanup function
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+      }
     }
   }, [ipInfo])
 
@@ -371,9 +365,7 @@ export function InteractiveMap({ ipInfo }: InteractiveMapProps) {
           <div className="flex items-center gap-3">
             <MapPin className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400" />
             <div>
-              <CardTitle className="high-contrast-text text-2xl sm:text-3xl">
-                {isMapLoaded ? "Interactive Location Map" : "Geographic Visualization"}
-              </CardTitle>
+              <CardTitle className="high-contrast-text text-2xl sm:text-3xl">Interactive Location Map</CardTitle>
               <CardDescription className="text-white/70 flex items-center gap-2 mt-1">
                 <CountryFlag countryCode={ipInfo.country_code} className="w-5 h-4" />
                 {ipInfo.city}, {ipInfo.region}, {ipInfo.country}
@@ -384,8 +376,9 @@ export function InteractiveMap({ ipInfo }: InteractiveMapProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={openGoogleMapsExternal}
+              onClick={openExternalMap}
               className="high-contrast-card border-white/30 hover:border-white/50 text-white hover:text-blue-400"
+              title="Open in OpenStreetMap"
             >
               <ExternalLink className="w-4 h-4" />
             </Button>
@@ -394,8 +387,18 @@ export function InteractiveMap({ ipInfo }: InteractiveMapProps) {
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={resetView}
+                  className="high-contrast-card border-white/30 hover:border-white/50 text-white hover:text-blue-400"
+                  title="Reset view"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={centerMap}
                   className="high-contrast-card border-white/30 hover:border-white/50 text-white hover:text-blue-400"
+                  title="Center on location"
                 >
                   <MapPin className="w-4 h-4" />
                 </Button>
@@ -404,6 +407,7 @@ export function InteractiveMap({ ipInfo }: InteractiveMapProps) {
                   size="sm"
                   onClick={toggleFullscreen}
                   className="high-contrast-card border-white/30 hover:border-white/50 text-white hover:text-blue-400"
+                  title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
                 >
                   {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                 </Button>
@@ -413,77 +417,12 @@ export function InteractiveMap({ ipInfo }: InteractiveMapProps) {
         </div>
       </CardHeader>
       <CardContent>
-        {error || apiKeyMissing ? (
+        {error ? (
           <div className="space-y-4">
             <Alert className="border-red-500/50 bg-red-900/20">
               <AlertCircle className="h-4 w-4 text-red-400" />
-              <AlertDescription className="text-red-200">
-                {apiKeyMissing ? (
-                  <div className="space-y-2">
-                    <p className="font-semibold">Google Maps API Key Required</p>
-                    <p className="text-sm">To enable the interactive map, you need to set up a Google Maps API key.</p>
-                  </div>
-                ) : (
-                  error
-                )}
-              </AlertDescription>
+              <AlertDescription className="text-red-200">{error}</AlertDescription>
             </Alert>
-
-            {apiKeyMissing && (
-              <Alert className="border-blue-500/50 bg-blue-900/20">
-                <Settings className="h-4 w-4 text-blue-400" />
-                <AlertDescription className="text-blue-200">
-                  <div className="space-y-3">
-                    <p className="font-semibold">Setup Instructions:</p>
-                    <ol className="text-sm space-y-1 list-decimal list-inside">
-                      <li>
-                        Go to the{" "}
-                        <a
-                          href="https://console.cloud.google.com/"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-400 hover:text-blue-300 underline"
-                        >
-                          Google Cloud Console
-                        </a>
-                      </li>
-                      <li>Create a new project or select an existing one</li>
-                      <li>Enable the "Maps JavaScript API"</li>
-                      <li>Create an API key in the "Credentials" section</li>
-                      <li>
-                        Set the environment variable:{" "}
-                        <code className="bg-black/30 px-1 rounded">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_api_key</code>
-                      </li>
-                    </ol>
-                    <div className="flex gap-2 mt-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open("https://console.cloud.google.com/", "_blank")}
-                        className="border-blue-400/50 text-blue-400 hover:bg-blue-400/10"
-                      >
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Google Cloud Console
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          window.open(
-                            "https://developers.google.com/maps/documentation/javascript/get-api-key",
-                            "_blank",
-                          )
-                        }
-                        className="border-blue-400/50 text-blue-400 hover:bg-blue-400/10"
-                      >
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        API Key Guide
-                      </Button>
-                    </div>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
 
             {/* Fallback static visualization */}
             <div className="aspect-video bg-gradient-to-br from-blue-900/30 to-purple-900/30 rounded-xl flex items-center justify-center border border-white/10">
@@ -504,12 +443,12 @@ export function InteractiveMap({ ipInfo }: InteractiveMapProps) {
                     </p>
                   </div>
                   <Button
-                    onClick={openGoogleMapsExternal}
+                    onClick={openExternalMap}
                     className="mt-4 bg-green-600 hover:bg-green-700 text-white"
                     size="sm"
                   >
                     <ExternalLink className="w-4 h-4 mr-2" />
-                    View in Google Maps
+                    View in OpenStreetMap
                   </Button>
                 </div>
               </div>
@@ -518,18 +457,42 @@ export function InteractiveMap({ ipInfo }: InteractiveMapProps) {
         ) : (
           <div className="space-y-4">
             {/* Location Info Bar */}
-            <div className="flex flex-wrap items-center gap-3 p-4 bg-white/5 rounded-lg border border-white/10">
-              <Badge className="bg-blue-600 hover:bg-blue-700 text-white font-mono">{ipInfo.ip}</Badge>
-              <div className="flex items-center gap-2 text-white/70">
-                <MapPin className="w-4 h-4" />
-                <span className="text-sm">
-                  {ipInfo.latitude.toFixed(4)}, {ipInfo.longitude.toFixed(4)}
-                </span>
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white/5 rounded-lg border border-white/10">
+              <div className="flex flex-wrap items-center gap-3">
+                <Badge className="bg-blue-600 hover:bg-blue-700 text-white font-mono">{ipInfo.ip}</Badge>
+                <div className="flex items-center gap-2 text-white/70">
+                  <MapPin className="w-4 h-4" />
+                  <span className="text-sm">
+                    {ipInfo.latitude.toFixed(4)}, {ipInfo.longitude.toFixed(4)}
+                  </span>
+                </div>
+                {ipInfo.postal_code && (
+                  <Badge variant="outline" className="border-white/30 text-white/70">
+                    {ipInfo.postal_code}
+                  </Badge>
+                )}
               </div>
-              {ipInfo.postal_code && (
-                <Badge variant="outline" className="border-white/30 text-white/70">
-                  {ipInfo.postal_code}
-                </Badge>
+
+              {/* Map Layer Controls */}
+              {isMapLoaded && (
+                <div className="flex items-center gap-1">
+                  <Layers className="w-4 h-4 text-white/50 mr-2" />
+                  {Object.entries(mapLayers).map(([key, layer]) => (
+                    <Button
+                      key={key}
+                      variant={currentLayer === key ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => changeMapLayer(key as "street" | "satellite" | "terrain")}
+                      className={`text-xs px-2 py-1 h-7 ${
+                        currentLayer === key
+                          ? "bg-blue-600 hover:bg-blue-700 text-white"
+                          : "text-white/70 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      {layer.name}
+                    </Button>
+                  ))}
+                </div>
               )}
             </div>
 
@@ -544,6 +507,7 @@ export function InteractiveMap({ ipInfo }: InteractiveMapProps) {
                   <div className="text-center space-y-4">
                     <Loader2 className="w-12 h-12 text-blue-400 animate-spin mx-auto" />
                     <p className="text-white/70">Loading interactive map...</p>
+                    <p className="text-white/50 text-sm">Powered by OpenStreetMap</p>
                   </div>
                 </div>
               )}
@@ -558,7 +522,18 @@ export function InteractiveMap({ ipInfo }: InteractiveMapProps) {
             {isMapLoaded && (
               <div className="text-xs text-white/50 text-center space-y-1">
                 <p>🖱️ Click and drag to pan • 🔍 Scroll to zoom • 📍 Click marker for details</p>
-                <p>Use the controls in the top-right corner to change map type and view options</p>
+                <p>
+                  Powered by{" "}
+                  <a
+                    href="https://www.openstreetmap.org/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 underline"
+                  >
+                    OpenStreetMap
+                  </a>{" "}
+                  • Free and open-source mapping
+                </p>
               </div>
             )}
           </div>
