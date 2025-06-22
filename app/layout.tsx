@@ -7,11 +7,11 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Advanced IP Lookup - Pitch Black Edition",
+  title: "Xreat IP Lookup",
   description:
-    "Professional IP address analysis with multiple API cross-referencing, enhanced accuracy, and pitch-black design for optimal readability",
+    "An IP-Lookup website made by XreatLabs team",
   keywords: "IP lookup, IP address, geolocation, ISP, network information, dark theme",
-    generator: 'v0.dev'
+    generator: 'Kraters'
 }
 
 export default function RootLayout({
