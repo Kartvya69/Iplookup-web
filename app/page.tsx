@@ -13,6 +13,7 @@ import { CountryFlag } from "@/components/country-flag"
 import { CloudProviderBadge } from "@/components/cloud-provider-badge"
 import { APIComparison } from "@/components/api-comparison"
 import { AccuracyIndicator } from "@/components/accuracy-indicator"
+import { InteractiveMap } from "@/components/interactive-map"
 import {
   Search,
   MapPin,
@@ -638,37 +639,8 @@ export default function IPLookupPage() {
             {/* API Comparison */}
             <APIComparison results={lookupData.individual_results} />
 
-            {/* Map Card */}
-            <Card className="shadow-2xl high-contrast-card neon-glow">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3 high-contrast-text text-2xl sm:text-3xl">
-                  <MapPin className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400" />
-                  Geographic Visualization
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="aspect-video bg-gradient-to-br from-blue-900/30 to-purple-900/30 rounded-xl flex items-center justify-center border border-white/10">
-                  <div className="text-center space-y-4 sm:space-y-6 p-4">
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
-                      <MapPin className="w-16 h-16 sm:w-20 sm:h-20 text-blue-400" />
-                      <CountryFlag countryCode={ipInfo.country_code} className="w-16 h-12 sm:w-20 sm:h-16" />
-                    </div>
-                    <div>
-                      <p className="text-xl sm:text-2xl font-bold text-white">
-                        {ipInfo.city}, {ipInfo.region}
-                      </p>
-                      <p className="text-2xl sm:text-3xl font-bold text-blue-400 mt-2">{ipInfo.country}</p>
-                      <p className="text-base sm:text-lg text-white/70 mt-4">
-                        Coordinates: {ipInfo.latitude.toFixed(4)}, {ipInfo.longitude.toFixed(4)}
-                      </p>
-                      {ipInfo.postal_code && (
-                        <p className="text-sm sm:text-base text-white/60 mt-2">Postal Code: {ipInfo.postal_code}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Interactive Map */}
+            <InteractiveMap ipInfo={ipInfo} />
           </div>
         )}
 
